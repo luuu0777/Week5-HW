@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>今天吃什麼？ | 晚餐決策轉盤</title>
+  <style>
+    :root {
+      --bg-color: #f7f8fa;
+      --card-bg: #ffffff;
+      --text-main: #2d3748;
+      --text-sub: #718096;
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --accent: #f59e0b;
+      --border-color: #e2e8f0;
+      --tag-active-bg: #4f46e5;
+      --tag-active-text: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px 16px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    header h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+
+    header p {
+      font-size: 0.95rem;
+      color: var(--text-sub);
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 900px;
+      gap: 24px;
+    }
+
+    @media (min-width: 820px) {
+      .container {
+        flex-direction: row;
+        align-items: flex-start;
+        justify-content: center;
+      }
+    }
+
+    /* 轉盤主區域 */
+    .wheel-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: var(--card-bg);
+      padding: 24px;
+      border-radius: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+      border: 1px solid var(--border-color);
+      width: 100%;
+      max-width: 440px;
+    }
+
+    .tag-filter {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .tag-btn {
+      border: 1px solid var(--border-color);
+      background: #f1f5f9;
+      color: var(--text-sub);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tag-btn.active {
+      background: var(--tag-active-bg);
+      color: var(--tag-active-text);
+      border-color: var(--tag-active-bg);
+    }
+
+    .wheel-wrapper {
+      position: relative;
+      width: 320px;
+      height: 320px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    canvas {
+      width: 320px;
+      height: 320px;
+      border-radius: 50%;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+    }
+
+    /* 指針 */
+    .pointer-wrapper {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      transform-origin: top center;
+      transition: transform 0.05s ease-out;
+    }
+
+    .pointer {
+      width: 0;
+      height: 0;
+      border-left: 14px solid transparent;
+      border-right: 14px solid transparent;
+      border-top: 28px solid #ef4444;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+    }
+
+    .center-cap {
+      position: absolute;
+      width: 44px;
+      height: 44px;
+      background: white;
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      border: 3px solid #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      font-size: 16px;
+    }
+
+    .spin-btn {
+      margin-top: 24px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 14px 48px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border-radius: 999px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+      transition: all 0.2s;
+    }
+
+    .spin-btn:hover:not(:disabled) {
+      background: var(--primary-hover);
+      transform: translateY(-2px);
+    }
+
+    .spin-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* 選項管理側邊欄 */
+    .list-panel {
+      background: var(--card-bg);
+      padding: 24px;
+      border-radius: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+      border: 1px solid var(--border-color);
+      width: 100%;
+      max-width: 440px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .list-panel h2 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .count-badge {
+      font-size: 0.8rem;
+      background: #e0e7ff;
+      color: var(--primary);
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+
+    .add-form {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .add-form input, .add-form select {
+      padding: 10px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border 0.2s;
+    }
+
+    .add-form input:focus, .add-form select:focus {
+      border-color: var(--primary);
+    }
+
+    .add-form input {
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .add-btn {
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .add-btn:hover {
+      background: #059669;
+    }
+
+    .item-list {
+      list-style: none;
+      max-height: 280px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-right: 4px;
+    }
+
+    .item-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .item-list::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+
+    .item-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: #f8fafc;
+      border-radius: 8px;
+      border: 1px solid #edf2f7;
+    }
+
+    .item-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.95rem;
+    }
+
+    .item-tag {
+      font-size: 0.75rem;
+      background: #e2e8f0;
+      color: #475569;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .item-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .action-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 4px 8px;
+      border-radius: 4px;
+      color: var(--text-sub);
+      transition: all 0.2s;
+    }
+
+    .action-btn:hover {
+      background: #e2e8f0;
+      color: var(--text-main);
+    }
+
+    .action-btn.delete:hover {
+      background: #fee2e2;
+      color: #ef4444;
+    }
+
+    .restore-bar {
+      margin-top: 8px;
+      font-size: 0.85rem;
+      color: var(--text-sub);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .text-link {
+      color: var(--primary);
+      background: none;
+      border: none;
+      cursor: pointer;
+      text-decoration: underline;
+      font-size: 0.85rem;
+    }
+
+    /* 結果彈窗 Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.4);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      padding: 16px;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 32px 24px;
+      border-radius: 24px;
+      max-width: 380px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+      transform: scale(0.85);
+      transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .modal-overlay.active .modal-content {
+      transform: scale(1);
+    }
+
+    .modal-content .sub-title {
+      font-size: 0.95rem;
+      color: var(--text-sub);
+      margin-bottom: 8px;
+    }
+
+    .modal-content .result-food {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: var(--primary);
+      margin-bottom: 12px;
+      animation: popIn 0.4s ease;
+      word-break: break-all;
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.6); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .modal-content .result-tag {
+      display: inline-block;
+      font-size: 0.8rem;
+      background: #f1f5f9;
+      color: #64748b;
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 24px;
+    }
+
+    .modal-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .modal-btn {
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .modal-btn.map {
+      background: #0ea5e9;
+      color: white;
+    }
+    .modal-btn.map:hover {
+      background: #0284c7;
+    }
+
+    .modal-btn.retry-exclude {
+      background: #fff1f2;
+      color: #e11d48;
+      border: 1px solid #fecdd3;
+    }
+    .modal-btn.retry-exclude:hover {
+      background: #ffe4e6;
+    }
+
+    .modal-btn.close {
+      background: #f1f5f9;
+      color: #475569;
+    }
+    .modal-btn.close:hover {
+      background: #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🍽️ 今天吃什麼？</h1>
+    <p>轉動轉盤，把今晚的抉擇交給命運！</p>
+  </header>
+
+  <div class="container">
+    <!-- 轉盤主區域 -->
+    <div class="wheel-panel">
+      <!-- 標籤過濾 -->
+      <div class="tag-filter" id="tagFilter">
+        <button class="tag-btn active" data-tag="全部">全部</button>
+        <button class="tag-btn" data-tag="湯麵/熱湯">湯麵/熱湯</button>
+        <button class="tag-btn" data-tag="飯食/便當">飯食/便當</button>
+        <button class="tag-btn" data-tag="快速/速食">快速/速食</button>
+        <button class="tag-btn" data-tag="宵夜/夜市">宵夜/夜市</button>
+        <button class="tag-btn" data-tag="熱炒/聚餐">熱炒/聚餐</button>
+      </div>
+
+      <!-- 轉盤容器 -->
+      <div class="wheel-wrapper">
+        <div class="pointer-wrapper" id="pointer">
+          <div class="pointer"></div>
+        </div>
+        <canvas id="wheelCanvas" width="640" height="640"></canvas>
+        <div class="center-cap">🍴</div>
+      </div>
+
+      <button class="spin-btn" id="spinBtn">決定就是你了！</button>
+    </div>
+
+    <!-- 項目編輯面板 -->
+    <div class="list-panel">
+      <h2>
+        <span>候選名單</span>
+        <span class="count-badge" id="listCount">0 家</span>
+      </h2>
+
+      <!-- 新增選項 -->
+      <div class="add-form">
+        <input type="text" id="newItemName" placeholder="輸入想吃的店或料理..." maxlength="12" />
+        <select id="newItemTag">
+          <option value="湯麵/熱湯">湯麵/熱湯</option>
+          <option value="飯食/便當" selected>飯食/便當</option>
+          <option value="快速/速食">快速/速食</option>
+          <option value="宵夜/夜市">宵夜/夜市</option>
+          <option value="熱炒/聚餐">熱炒/聚餐</option>
+          <option value="其他">其他</option>
+        </select>
+        <button class="add-btn" id="addItemBtn">加入</button>
+      </div>
+
+      <!-- 選項清單 -->
+      <ul class="item-list" id="itemList"></ul>
+
+      <div class="restore-bar">
+        <span id="excludedNote"></span>
+        <button class="text-link" id="resetDefaultBtn">重置為預設名單</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 結果彈窗 Modal -->
+  <div class="modal-overlay" id="resultModal">
+    <div class="modal-content">
+      <div class="sub-title">今晚的主廚推薦</div>
+      <div class="result-food" id="modalFood">拉麵</div>
+      <div><span class="result-tag" id="modalTag">湯麵/熱湯</span></div>
+
+      <div class="modal-actions">
+        <!-- Google Maps 搜尋 -->
+        <a href="#" target="_blank" class="modal-btn map" id="mapLinkBtn">
+          📍 在 Google 地圖尋找附近的它
+        </a>
+        <!-- 防後悔排除抽 -->
+        <button class="modal-btn retry-exclude" id="excludeRetryBtn">
+          🚫 這家不想吃，暫時排除並重抽！
+        </button>
+        <button class="modal-btn close" id="closeModalBtn">
+          就決定吃這家！
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 預設名單與其分類
+    const DEFAULT_ITEMS = [
+      { id: '1', name: '拉麵', tag: '湯麵/熱湯' },
+      { id: '2', name: '火鍋', tag: '熱炒/聚餐' },
+      { id: '3', name: '麥當勞', tag: '快速/速食' },
+      { id: '4', name: '牛肉麵', tag: '湯麵/熱湯' },
+      { id: '5', name: '滷味', tag: '宵夜/夜市' },
+      { id: '6', name: '炒飯', tag: '飯食/便當' },
+      { id: '7', name: '水餃', tag: '飯食/便當' },
+      { id: '8', name: '鐵板燒', tag: '熱炒/聚餐' },
+      { id: '9', name: '丼飯', tag: '飯食/便當' },
+      { id: '10', name: '烏龍麵', tag: '湯麵/熱湯' },
+      { id: '11', name: '夜市', tag: '宵夜/夜市' }
+    ];
+
+    // 簡約莫蘭迪/粉彩配色盤
+    const PALETTE = [
+      '#F87171', '#FB923C', '#FBBF24', '#34D399', 
+      '#60A5FA', '#818CF8', '#A78BFA', '#F472B6', 
+      '#38BDF8', '#4ADE80', '#FCD34D'
+    ];
+
+    // 狀態變數
+    let items = [];
+    let excludedIds = new Set();
+    let currentTag = '全部';
+    let currentRotation = 0; // 當前弧度
+    let isSpinning = false;
+    let selectedItem = null;
+
+    // DOM 元素
+    const canvas = document.getElementById('wheelCanvas');
+    const ctx = canvas.getContext('2d');
+    const pointer = document.getElementById('pointer');
+    const spinBtn = document.getElementById('spinBtn');
+    const itemList = document.getElementById('itemList');
+    const listCount = document.getElementById('listCount');
+    const tagFilter = document.getElementById('tagFilter');
+    const newItemName = document.getElementById('newItemName');
+    const newItemTag = document.getElementById('newItemTag');
+    const addItemBtn = document.getElementById('addItemBtn');
+    const resetDefaultBtn = document.getElementById('resetDefaultBtn');
+    const excludedNote = document.getElementById('excludedNote');
+
+    // Modal DOM
+    const resultModal = document.getElementById('resultModal');
+    const modalFood = document.getElementById('modalFood');
+    const modalTag = document.getElementById('modalTag');
+    const mapLinkBtn = document.getElementById('mapLinkBtn');
+    const excludeRetryBtn = document.getElementById('excludeRetryBtn');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+
+    // 初始化資料（從 localStorage 或使用預設）
+    function initData() {
+      const saved = localStorage.getItem('what2eat_items');
+      if (saved) {
+        try {
+          items = JSON.parse(saved);
+        } catch(e) {
+          items = [...DEFAULT_ITEMS];
+        }
+      } else {
+        items = [...DEFAULT_ITEMS];
+      }
+      renderAll();
+    }
+
+    function saveToStorage() {
+      localStorage.setItem('what2eat_items', JSON.stringify(items));
+    }
+
+    // 取得當前有效候選清單（過濾標籤 + 過濾暫時排除）
+    function getActiveItems() {
+      return items.filter(item => {
+        const matchesTag = currentTag === '全部' || item.tag === currentTag;
+        const notExcluded = !excludedIds.has(item.id);
+        return matchesTag && notExcluded;
+      });
+    }
+
+    // 繪製轉盤
+    function drawWheel() {
+      const activeItems = getActiveItems();
+      const numSegments = activeItems.length;
+      const width = canvas.width;
+      const height = canvas.height;
+      const center = width / 2;
+      const radius = center - 12;
+
+      ctx.clearRect(0, 0, width, height);
+
+      if (numSegments === 0) {
+        // 空白提示
+        ctx.save();
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '28px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('無可用選項', center, center);
+        ctx.restore();
+        return;
+      }
+
+      const arc = (2 * Math.PI) / numSegments;
+
+      ctx.save();
+      ctx.translate(center, center);
+      ctx.rotate(currentRotation);
+
+      for (let i = 0; i < numSegments; i++) {
+        const angle = i * arc;
+        // 扇形背景
+        ctx.beginPath();
+        ctx.fillStyle = PALETTE[i % PALETTE.length];
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, radius, angle, angle + arc);
+        ctx.lineTo(0, 0);
+        ctx.fill();
+
+        // 扇形白色邊界
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // 文字標籤
+        ctx.save();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 26px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        // 旋轉至該扇區中線
+        ctx.rotate(angle + arc / 2);
+        // 陰影提升閱讀性
+        ctx.shadowColor = 'rgba(0,0,0,0.2)';
+        ctx.shadowBlur = 4;
+        ctx.fillText(activeItems[i].name, radius - 30, 0);
+        ctx.restore();
+      }
+
+      ctx.restore();
+    }
+
+    // 旋轉邏輯（帶有物理減速與指針抖動）
+    function spinWheel() {
+      const activeItems = getActiveItems();
+      if (activeItems.length < 2) {
+        alert('請至少保留 2 個可抽選項！');
+        return;
+      }
+
+      if (isSpinning) return;
+      isSpinning = true;
+      spinBtn.disabled = true;
+
+      // 隨機旋轉 5~8 圈加上隨機角度
+      const minRounds = 5;
+      const extraAngle = Math.random() * 2 * Math.PI;
+      const totalSpinAngle = minRounds * 2 * Math.PI + extraAngle;
+      
+      const duration = 4000; // 4 秒
+      const startAngle = currentRotation;
+      const startTime = performance.now();
+
+      let lastSegmentIndex = -1;
+
+      function animate(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // cubic ease-out 緩動
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        currentRotation = startAngle + totalSpinAngle * easeOut;
+
+        // 計算指針震動效果：當跨過扇區交界時指針微擺
+        const arc = (2 * Math.PI) / activeItems.length;
+        // 指針在上方（-Math.PI / 2）
+        const normalizedAngle = (3 * Math.PI / 2 - (currentRotation % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+        const currentSegment = Math.floor(normalizedAngle / arc);
+
+        if (currentSegment !== lastSegmentIndex) {
+          lastSegmentIndex = currentSegment;
+          // 觸發指針微擺動
+          triggerPointerJiggle();
+        }
+
+        drawWheel();
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          isSpinning = false;
+          spinBtn.disabled = false;
+          // 確定中選項目
+          selectedItem = activeItems[currentSegment % activeItems.length];
+          showResultModal(selectedItem);
+        }
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    // 指針震動效果
+    function triggerPointerJiggle() {
+      pointer.style.transform = 'translateX(-50%) rotate(-18deg)';
+      setTimeout(() => {
+        pointer.style.transform = 'translateX(-50%) rotate(0deg)';
+      }, 50);
+    }
+
+    // 顯示結果彈窗
+    function showResultModal(item) {
+      modalFood.textContent = item.name;
+      modalTag.textContent = item.tag;
+      // Google Maps 搜尋連結
+      mapLinkBtn.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.name)}`;
+      resultModal.classList.add('active');
+    }
+
+    function closeModal() {
+      resultModal.classList.remove('active');
+    }
+
+    // 暫時排除並重抽
+    function excludeAndRetry() {
+      if (!selectedItem) return;
+      excludedIds.add(selectedItem.id);
+      closeModal();
+      renderAll();
+
+      const activeItems = getActiveItems();
+      if (activeItems.length >= 2) {
+        setTimeout(spinWheel, 300);
+      } else {
+        alert('剩餘候選項目不足，無法重抽！已自動清除排除條件。');
+        excludedIds.clear();
+        renderAll();
+      }
+    }
+
+    // 渲染清單面板
+    function renderList() {
+      itemList.innerHTML = '';
+      items.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'item-row';
+        const isExcluded = excludedIds.has(item.id);
+
+        li.innerHTML = `
+          <div class="item-info">
+            <span style="${isExcluded ? 'text-decoration: line-through; opacity: 0.5;' : ''}">${item.name}</span>
+            <span class="item-tag">${item.tag}</span>
+          </div>
+          <div class="item-actions">
+            <button class="action-btn" onclick="editItem('${item.id}')">編輯</button>
+            <button class="action-btn delete" onclick="deleteItem('${item.id}')">刪除</button>
+          </div>
+        `;
+        itemList.appendChild(li);
+      });
+
+      const activeCount = getActiveItems().length;
+      listCount.textContent = `共 ${activeCount} / ${items.length} 家`;
+
+      if (excludedIds.size > 0) {
+        excludedNote.innerHTML = `已排除 ${excludedIds.size} 家 (<button class="text-link" onclick="clearExcluded()">復原</button>)`;
+      } else {
+        excludedNote.textContent = '';
+      }
+    }
+
+    // 新增項目
+    function addItem() {
+      const name = newItemName.value.trim();
+      const tag = newItemTag.value;
+      if (!name) return;
+
+      const newItem = {
+        id: Date.now().toString(),
+        name,
+        tag
+      };
+
+      items.push(newItem);
+      newItemName.value = '';
+      saveToStorage();
+      renderAll();
+    }
+
+    // 編輯項目
+    window.editItem = function(id) {
+      const target = items.find(i => i.id === id);
+      if (!target) return;
+      const newName = prompt('修改餐廳/料理名稱：', target.name);
+      if (newName && newName.trim()) {
+        target.name = newName.trim();
+        saveToStorage();
+        renderAll();
+      }
+    };
+
+    // 刪除項目
+    window.deleteItem = function(id) {
+      if (items.length <= 2) {
+        alert('轉盤至少需要保留 2 個項目喔！');
+        return;
+      }
+      items = items.filter(i => i.id !== id);
+      excludedIds.delete(id);
+      saveToStorage();
+      renderAll();
+    };
+
+    // 清除排除
+    window.clearExcluded = function() {
+      excludedIds.clear();
+      renderAll();
+    };
+
+    function renderAll() {
+      renderList();
+      drawWheel();
+    }
+
+    // 事件監聽綁定
+    spinBtn.addEventListener('click', spinWheel);
+    addItemBtn.addEventListener('click', addItem);
+    newItemName.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') addItem();
+    });
+
+    // 標籤篩選切換
+    tagFilter.addEventListener('click', (e) => {
+      if (e.target.classList.contains('tag-btn')) {
+        document.querySelectorAll('.tag-btn').forEach(btn => btn.classList.remove('active'));
+        e.target.classList.add('active');
+        currentTag = e.target.getAttribute('data-tag');
+        renderAll();
+      }
+    });
+
+    // 重設為預設名單
+    resetDefaultBtn.addEventListener('click', () => {
+      if (confirm('確定要恢復為最初預設的名單嗎？你自行新增的項目將被重置。')) {
+        items = [...DEFAULT_ITEMS];
+        excludedIds.clear();
+        saveToStorage();
+        renderAll();
+      }
+    });
+
+    // Modal 按鈕
+    closeModalBtn.addEventListener('click', closeModal);
+    excludeRetryBtn.addEventListener('click', excludeAndRetry);
+
+    // 啟動
+    initData();
+  </script>
+</body>
+</html>
